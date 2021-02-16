@@ -28,7 +28,7 @@ from   zipfile import ZipFile, ZipInfo, ZIP_STORED, ZIP_DEFLATED
 
 from .exceptions import CannotProceed
 from .exit_codes import ExitCode
-from .metadata_utils import key_for_field, field_for_key
+from .metadata_utils import key_for_field, field_for_key, proper_name
 
 if __debug__:
     from sidetrack import log
@@ -126,6 +126,6 @@ class MainBody():
                     else:
                         for item in self.args:
                             if key_for_field(item):
-                                inform(f'{item}: {metadata[key_for_field(item)]}')
+                                print(f'{proper_name(item)}: {metadata[key_for_field(item)]}')
                             elif field_for_key(item):
-                                inform(f'{item}: {metadata[item]}')
+                                print(f'{proper_name(item)}: {metadata[item]}')
