@@ -18,7 +18,8 @@ from   bun import inform, warn, alert, alert_fatal
 from   commonpy.file_utils import filename_extension, filename_basename
 from   commonpy.file_utils import readable, writable
 from   commonpy.string_utils import antiformat
-from   os import path
+from   os import listdir
+from   os.path import isdir, join
 from   pathlib import Path
 import plistlib
 from   plistlib import FMT_XML
@@ -103,19 +104,48 @@ class MainBody():
     def _do_main_work(self):
         if self.on_metadata:
             if self.do_modify:
-                if self.overwrite:
-                    warn('Overwrite mode in effect.')
-                inform('Will substitute values in metadata:')
+                self._edit_metadata()
             else:
-                metadata = {}
-                with zipfile.ZipFile(self.document, 'r', ZIP_STORED) as zf:
-                    if 'metadata.xml' in zf.namelist():
-                        f = zf.read('metadata.xml')
-                        metadata = plistlib.loads(f, fmt = FMT_XML)
-                if metadata:
-                    with_prefix = (len(self.args) > 1)
-                    for item in self.args:
-                        print_value(item, metadata, with_prefix)
+                self._print_metadata()
+        if self.on_body:
+            self._edit_body()
+
+
+    def _print_metadata(self):
+        metadata = {}
+        if isdir(self.document):
+            # This is the "package" format, i.e., a folder.
+            if __debug__: log(f'document has package structure: {self.document}')
+            for item in listdir(self.document):
+                if item == 'metadata.xml':
+                    if __debug__: log(f'reading plist contained in metadata.xml')
+                    with open(join(self.document, 'metadata.xml'), 'rb') as f:
+                        metadata = plistlib.load(f, fmt = FMT_XML)
+                    break
+            else:
+                inform(f'No metadata found in {self.document}')
+                return
+        else:
+            if __debug__: log(f'document is a zip archive: {self.document}')
+            with zipfile.ZipFile(self.document, 'r', ZIP_STORED) as zf:
+                if 'metadata.xml' in zf.namelist():
+                    if __debug__: log(f'reading plist contained in metadata.xml')
+                    f = zf.read('metadata.xml')
+                    metadata = plistlib.loads(f, fmt = FMT_XML)
+                else:
+                    inform(f'No metadata found in {self.document}')
+                    return
+        if metadata:
+            if __debug__: log(f'found nonempty metadata content')
+            with_prefix = (len(self.args) > 1)
+            for item in self.args:
+                print_value(item, metadata, with_prefix)
+
+
+    def _edit_metadata():
+        if self.overwrite:
+            warn('Overwrite mode in effect.')
+        inform('Will substitute values in metadata:')
 
 
 
@@ -124,10 +154,15 @@ class MainBody():
 
 def print_value(item, metadata, show_prefix):
     prefix = f'{item}: ' if show_prefix else ''
-    if key_for_field(item):
-        print(f'{prefix}{metadata[key_for_field(item)]}')
-    elif field_for_key(item):
-        print(f'{prefix}{metadata[item]}')
-    else:
+
+    # Find the proper kMDItem* dict key, or complain if item is unknown.
+    key = key_for_field(item)
+    if not key:
+        key = field_for_key(item)
+    if not key:
         alert(f'Unrecognized metadata field or key: {item}')
         raise CannotProceed(ExitCode.bad_arg)
+
+    # Print the value if there is one, else print nothing.
+    if key in metadata:
+        print(f'{prefix}{metadata[key]}')
