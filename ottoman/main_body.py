@@ -101,7 +101,6 @@ class MainBody():
 
 
     def _do_main_work(self):
-        format = ZIP_STORED
         if self.on_metadata:
             if self.do_modify:
                 if self.overwrite:
@@ -109,23 +108,26 @@ class MainBody():
                 inform('Will substitute values in metadata:')
             else:
                 metadata = {}
-                with zipfile.ZipFile(self.document, 'r', format) as zf:
+                with zipfile.ZipFile(self.document, 'r', ZIP_STORED) as zf:
                     if 'metadata.xml' in zf.namelist():
                         f = zf.read('metadata.xml')
                         metadata = plistlib.loads(f, fmt = FMT_XML)
                 if metadata:
-                    if len(self.args) == 1:
-                        item = self.args[0]
-                        if key_for_field(item):
-                            print(metadata[key_for_field(item)])
-                        elif field_for_key(item):
-                            print(metadata[item])
-                        else:
-                            alert(f'Unrecognized metadata field or key: {item}')
-                            raise CannotProceed(ExitCode.bad_arg)
-                    else:
-                        for item in self.args:
-                            if key_for_field(item):
-                                print(f'{proper_name(item)}: {metadata[key_for_field(item)]}')
-                            elif field_for_key(item):
-                                print(f'{proper_name(item)}: {metadata[item]}')
+                    with_prefix = (len(self.args) > 1)
+                    for item in self.args:
+                        print_value(item, metadata, with_prefix)
+
+
+
+# Miscellaneous helpers.
+# .............................................................................
+
+def print_value(item, metadata, show_prefix):
+    prefix = f'{item}: ' if show_prefix else ''
+    if key_for_field(item):
+        print(f'{prefix}{metadata[key_for_field(item)]}')
+    elif field_for_key(item):
+        print(f'{prefix}{metadata[item]}')
+    else:
+        alert(f'Unrecognized metadata field or key: {item}')
+        raise CannotProceed(ExitCode.bad_arg)
