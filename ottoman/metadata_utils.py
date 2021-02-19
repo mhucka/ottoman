@@ -56,13 +56,10 @@ def field_for_key(key):
     return _METADATA_BY_KEY[key][0] if key in _METADATA_BY_KEY else None
 
 
-def proper_name(given):
-    for name in _METADATA_BY_FIELD.keys():
-        if name.lower() == given.lower():
-            return name
-    else:                               # Note this "else" applies to the "for"
-        for key in _METADATA_BY_KEY.keys():
-            if key.lower() == given.lower():
-                return key
-        else:
-            return None
+def md_key(given):
+    if given in _METADATA_BY_FIELD.keys():
+        return _METADATA_BY_FIELD[given][0]
+    elif given in _METADATA_BY_KEY.keys():
+        return given
+    else:
+        return None
