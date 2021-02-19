@@ -29,7 +29,7 @@ from   zipfile import ZipFile, ZipInfo, ZIP_STORED, ZIP_DEFLATED
 
 from .exceptions import CannotProceed
 from .exit_codes import ExitCode
-from .metadata_utils import key_for_field, field_for_key, proper_name
+from .metadata_utils import key_for_field, field_for_key, md_key
 
 if __debug__:
     from sidetrack import log
@@ -112,57 +112,55 @@ class MainBody():
 
 
     def _print_metadata(self):
-        metadata = {}
-        if isdir(self.document):
-            # This is the "package" format, i.e., a folder.
-            if __debug__: log(f'document has package structure: {self.document}')
-            for item in listdir(self.document):
-                if item == 'metadata.xml':
-                    if __debug__: log(f'reading plist contained in metadata.xml')
-                    with open(join(self.document, 'metadata.xml'), 'rb') as f:
-                        metadata = plistlib.load(f, fmt = FMT_XML)
-                    break
-            else:
-                inform(f'No metadata found in {self.document}')
-                return
-        else:
-            if __debug__: log(f'document is a zip archive: {self.document}')
-            with zipfile.ZipFile(self.document, 'r', ZIP_STORED) as zf:
-                if 'metadata.xml' in zf.namelist():
-                    if __debug__: log(f'reading plist contained in metadata.xml')
-                    f = zf.read('metadata.xml')
-                    metadata = plistlib.loads(f, fmt = FMT_XML)
-                else:
-                    inform(f'No metadata found in {self.document}')
-                    return
+        metadata = self._document_metadata()
         if metadata:
             if __debug__: log(f'found nonempty metadata content')
             with_prefix = (len(self.args) > 1)
             for item in self.args:
                 print_value(item, metadata, with_prefix)
+        else:
+            inform(f'No metadata found in {self.document}')
 
 
-    def _edit_metadata():
+    # goals:
+    # - check if the value is already there and don't touch the file if it is,
+    #   to avoid having OO close & reopen the file unnecessarily
+
+    def _edit_metadata(self):
         if self.overwrite:
             warn('Overwrite mode in effect.')
         inform('Will substitute values in metadata:')
+        metadata = self._document_metadata()
+        import pdb; pdb.set_trace()
 
+
+    def _document_metadata(self):
+        '''Return the metadata content of the document as a dict.'''
+        # Two formats of OO documents: package (directory), or a zip file.
+        if isdir(self.document):
+            if __debug__: log(f'document has package structure: {self.document}')
+            for item in listdir(self.document):
+                if item == 'metadata.xml':
+                    if __debug__: log(f'reading plist contained in metadata.xml')
+                    with open(join(self.document, 'metadata.xml'), 'rb') as f:
+                        return plistlib.load(f, fmt = FMT_XML)
+        else:
+            if __debug__: log(f'document is a zip archive: {self.document}')
+            with zipfile.ZipFile(self.document, 'r', ZIP_STORED) as zf:
+                if 'metadata.xml' in zf.namelist():
+                    if __debug__: log(f'reading plist contained in metadata.xml')
+                    return plistlib.loads(zf.read('metadata.xml'), fmt = FMT_XML)
 
 
 # Miscellaneous helpers.
 # .............................................................................
 
 def print_value(item, metadata, show_prefix):
-    prefix = f'{item}: ' if show_prefix else ''
-
-    # Find the proper kMDItem* dict key, or complain if item is unknown.
-    key = key_for_field(item)
-    if not key:
-        key = field_for_key(item)
+    key = md_key(item)
     if not key:
         alert(f'Unrecognized metadata field or key: {item}')
         raise CannotProceed(ExitCode.bad_arg)
-
     # Print the value if there is one, else print nothing.
     if key in metadata:
+        prefix = f'{item}: ' if show_prefix else ''
         print(f'{prefix}{metadata[key]}')
