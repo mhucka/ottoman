@@ -1,10 +1,11 @@
-Template for my software READMEs
-================================
+Ottoman
+=======
 
-This is a template README file for my software repositories.  This first paragraph of the README will summarize the software in a concise fashion, preferably using no more than one or two sentences.
+Ottoman (_"**O**mniOutliner **T**ext **T**ransf**O**r**ma**tio**n**s"_) is a tool to manipulate metadata and text in an OmniOutliner&nbsp;5 document.
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg?style=flat-square)](https://choosealicense.com/licenses/bsd-3-clause)
-[![Latest release](https://img.shields.io/github/v/release/mhucka/template.svg?style=flat-square&color=b44e88)](https://github.com/mhucka/template/releases)
+[![Latest release](https://img.shields.io/github/v/release/mhucka/ottoman.svg?style=flat-square&color=b44e88)](https://github.com/mhucka/ottoman/releases)
+[![Python](https://img.shields.io/badge/Python-3.6+-brightgreen.svg?style=flat-square)](http://shields.io)
 
 
 Table of contents
@@ -24,55 +25,40 @@ Table of contents
 Introduction
 ------------
 
-This repository is a GitHub template repostory for creating software project repositories.
+[OmniOutliner](https://www.omnigroup.com/omnioutliner/) is an outline-oriented, structured document editor for the Mac.  For fans of [this type of program](https://en.wikipedia.org/wiki/Outliner) (and related programs such as the now-defunct [NoteBook](https://www.macworld.com/article/3019913/app-developer-circus-ponies-calls-it-quits.html)), it is an indispensable tool for writing notes, organizing information, planning, and more.  People who also use other tools such as [DEVONthink](https://www.devontechnologies.com/apps/devonthink) will naturally want to put OmniOutliner documents into their databases.   However, when viewing and editing documents in applications outside the database, it can be difficult to determine where the document came from: nothing about the document itself (e.g., not the file path) directly indicates its location in the information hierarchy of the database.  This quickly leads to a problem: when looking at a given document in OmniOutliner, _how do you find out where you stored it in your databse_?
 
-This README file is in Markdown format, and is meant to provide a template for README files as well an illustration of what the README file can be expected to look like.  For a software project, this [Introduction](#introduction) section &ndash; which you are presently reading &ndash; should provide background for the project, a brief explanation of what the project is about, and optionally, pointers to resources that can help orient readers.  Ideally, this section should be short.
+The only practical option is to annotate your OmniOutliner documents with information relevant to how you store them in your database, so that you can find the information somewhere in the document itself.  Adding such annotations manually becomes tedious and error-prone; you want automation to do this for you, but here's the rub: OmniOutliner's scripting facilities (as of version 5.8) _does not provide any access to the [metadata fields](https://support.omnigroup.com/documentation/omnioutliner/mac/5.0.1/en/print/#format-and-metadata) of a document_, nor is there an easy way to perform text substitutions using placeholders in the body of a document.  This frustrating situation drove the author to create Ottoman (_"**O**mniOutliner **T**ext **T**ransf**O**r**ma**tio**n**s"_), a program to manipulate metadata and text in OmniOutliner&nbsp;5 documents.
+
+Ottoman is a command-line tool that offers the ability to add or replace values in a document's metadata as well as perform placeholder text substitutions in the body of a document.  Thus, you can execute command such as
+
+```
+ottoman --document mydoc.ooutline --metadata  comments="my comment"  project="my project"
+```
+
+Ottoman works by manipulating the document outside of and independently of OmniOutliner &ndash; OmniOutliner does not even have to be running.  Ottoman can modify a document in-place or write it as a new document.  Note that there is the potential for document corruption to occur, so take appropriate precautions and keep backups of all your files. **The author assumes no responsibility for any data corruption or loss that occurs as a result of using Ottoman.**  Ottoman is free software and comes with no guarantees whatsoever.
 
 
 Installation
 ------------
 
-Begin this section by mentioning any prerequisites that may be important for users to have before they can use your software.  Examples include hardware and operating system requirements.
-
-Next, provide step-by-step instructions for installing the software, preferably with command examples that can be copy-pasted by readers into their software environments. For example:
-
-```bash
-a command-line command here
-```
-
-Sometimes, subsections may be needed for different operating systems or particularly complicated installations.
- 
 
 Usage
 -----
 
-This [Usage](#usage) section would explain more about how to run the software, what kind of behavior to expect, and so on.
-
-### _Basic operation_
-
-Begin with the simplest possible example of how to use your software.  Provide example command lines and/or screen images, as appropriate, to help readers understand how the software is expected to be used.  Many readers are likely to look for command lines they can copy-paste directly from your explanations, so it's best to keep that in mind as you write examples.
-
-### _Additional options_
-
-Some projects need to communicate additional information to users and can benefit from additional sections in the README file.  It's difficult to give specific instructions &ndash; a lot depends on your software, your intended audience, etc.  Use your judgement and ask for feedback from users or colleagues to help figure out what else is worth explaining.
 
 
 Known issues and limitations
 ----------------------------
 
-In this section, summarize any notable issues and/or limitations of your software.  If none are known yet, this section can be omitted (and don't forget to remove the corresponding entry in the [Table of Contents](#table-of-contents) too); alternatively, you can leave this section in and write something along the lines of "none are known at this time".
+Ottoman works by performing all operations in memory.  If you have an extremely large OmniOutliner document and not enough RAM in your computer, problems may arise.  It is hard to quantify what "extremely large" means, but at a guess, I would say it's probably greater than 1 gigabyte.  While it seems unlikely that anyone could practically work with OmniOutliner documents _that_ large, it is also the case that Ottoman does not check for out-of-memory errors and will behave unpredicably.
 
 
 Getting help
 ------------
 
-Inform readers of how they can contact you, or at least how they can report problems they may encounter.  This may simply be a request to use the issue tracker on your repository, but many projects have associated chat or mailing lists, and this section is a good place to mention those.
-
 
 Contributing
 ------------
-
-This section is optional; if your repository is for a project that accepts open-source contributions, then this section is where you can mention how people can offer contributions, and point them to your guidelines for contributing.  (If you delete this section, don't forget to remove the corresponding entry in the [Table of Contents](#table-of-contents) too.)
 
 
 License
@@ -84,7 +70,6 @@ This software is Copyright (C) 2020, by Michael Hucka and the California Institu
 Authors and history
 ---------------------------
 
-In this section, list the authors and contributors to your software project.  Adding additional notes here about the history of the project can make it more interesting and compelling.  This is also a place where you can acknowledge other contributions to the work and the use of other people's software or tools.
 
 
 Acknowledgments
