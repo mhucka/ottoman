@@ -18,18 +18,22 @@ from   bun import inform, warn, alert, alert_fatal
 from   commonpy.file_utils import filename_extension, filename_basename
 from   commonpy.file_utils import readable, writable
 from   commonpy.string_utils import antiformat
+from   io import BytesIO
 from   os import listdir
-from   os.path import isdir, join
+from   os.path import isdir, join, abspath, dirname
 from   pathlib import Path
 import plistlib
 from   plistlib import FMT_XML
+import safer
 import sys
+from   tempfile import TemporaryFile
 import zipfile
 from   zipfile import ZipFile, ZipInfo, ZIP_STORED, ZIP_DEFLATED
 
 from .exceptions import CannotProceed
 from .exit_codes import ExitCode
-from .metadata_utils import key_for_field, field_for_key, md_key
+from .oo_utils import md_key, md_type, md_match, md_set
+from .oo_utils import document_list, close_document, open_document, save_document
 
 if __debug__:
     from sidetrack import log
@@ -122,30 +126,80 @@ class MainBody():
             inform(f'No metadata found in {self.document}')
 
 
-    # goals:
-    # - check if the value is already there and don't touch the file if it is,
-    #   to avoid having OO close & reopen the file unnecessarily
-
     def _edit_metadata(self):
-        if self.overwrite:
-            warn('Overwrite mode in effect.')
-        inform('Will substitute values in metadata:')
-        metadata = self._document_metadata()
-        import pdb; pdb.set_trace()
+        # Check if the values are already there & don't touch the file if so,
+        # to avoid having OO close & reopen the file unnecessarily.
+        names_and_values = [pair.split('=') for pair in self.args]
+        metadata = self._document_metadata() or {}
+        if metadata:
+            # Check if we need to change anything & exit if not.
+            for name_or_key, new_value in names_and_values:
+                key = md_key(name_or_key)
+                if key in metadata and not md_match(metadata, key, new_value):
+                    break
+                elif key not in metadata and new_value:
+                    break
+            else:                     # Note: this "else" is on the for loop.
+                if not self.overwrite:
+                    if __debug__: log(f'no metadata changes necessary')
+                    return
+
+        # OK, we're doing it. First close the document (which prompts a save).
+        reopen = False
+        if abspath(self.document) in document_list():
+            try:
+                close_document(self.document)
+            except:
+                warn(f'Aborting because document was left unsaved: {self.document}')
+                raise CannotProceed(ExitCode.user_interrupt)
+            reopen = True
+
+        # Rewrite the metadata we read from the document with new values.
+        for name_or_key, value in names_and_values:
+            if __debug__: log(f'changing metadata {name_or_key} to "{value}"')
+            md_set(metadata, name_or_key, value)
+
+        # Write out the modified document.
+        if isdir(self.document):
+            # In the package case, we only need to rewrite the metadata file.
+            if __debug__: log(f'writing plist contained in metadata.xml')
+            with open(join(self.document, 'metadata.xml'), 'wb') as f:
+                plistlib.dump(metadata, f, fmt = FMT_XML)
+        else:
+            # As of Python 3.9, there's no facility in the zipfile package to
+            # replace items in-place.  Have to do it ourselves.
+            tmp = BytesIO()
+            with zipfile.ZipFile(tmp, 'w') as new_zip:
+                # Use our new metadata to create metadata.xml in the zip file.
+                metadata_plist = plistlib.dumps(metadata, fmt = FMT_XML)
+                new_zip.writestr('metadata.xml', metadata_plist)
+                # Copy the other .xml files from the original OO document.
+                with zipfile.ZipFile(self.document, 'r', ZIP_STORED) as orig_zip:
+                    for item in orig_zip.namelist():
+                        if item == 'metadata.xml':
+                            continue
+                        data = orig_zip.read(item)
+                        new_zip.writestr(item, data)
+            with safer.open(self.document, 'wb') as f:
+                f.write(tmp.getvalue())
+
+        # If we closed it, reopen it.
+        if reopen:
+            open_document(self.document)
 
 
     def _document_metadata(self):
         '''Return the metadata content of the document as a dict.'''
         # Two formats of OO documents: package (directory), or a zip file.
         if isdir(self.document):
-            if __debug__: log(f'document has package structure: {self.document}')
+            if __debug__: log('document has package structure')
             for item in listdir(self.document):
                 if item == 'metadata.xml':
                     if __debug__: log(f'reading plist contained in metadata.xml')
                     with open(join(self.document, 'metadata.xml'), 'rb') as f:
                         return plistlib.load(f, fmt = FMT_XML)
         else:
-            if __debug__: log(f'document is a zip archive: {self.document}')
+            if __debug__: log('document is a zip archive')
             with zipfile.ZipFile(self.document, 'r', ZIP_STORED) as zf:
                 if 'metadata.xml' in zf.namelist():
                     if __debug__: log(f'reading plist contained in metadata.xml')
