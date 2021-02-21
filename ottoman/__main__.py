@@ -23,46 +23,47 @@ import plac
 import signal
 import sys
 
-if __debug__:
-    from sidetrack import set_debug, log, logr
-
 import ottoman
 from   ottoman import print_version
 from   ottoman.exceptions import *
 from   ottoman.exit_codes import ExitCode
 from   ottoman.main_body import MainBody
 
+if __debug__:
+    from sidetrack import set_debug, log, logr
+
 
 # Main program.
 # .............................................................................
 
 @plac.annotations(
-    body      = ('act on the document body contents',                    'flag',   'b'),
-    no_color  = ('do not color-code terminal output',                    'flag',   'C'),
-    document  = ('the OmniOutliner document to modify (required)',       'option', 'd'),
-    metadata  = ('act on the document metadata',                         'flag',   'm'),
-    overwrite = ('forcefully overwrite previous metadata content',       'flag',   'o'),
-    quiet     = ('be less chatty -- only print important messages',      'flag',   'q'),
-    version   = ('print version info and exit',                          'flag',   'V'),
-    debug     = ('write detailed trace to "OUT" ("-" means console)',    'option', '@'),
+    document  = ('the OmniOutliner document to modify (required)',    'option', 'd'),
+    metadata  = ('act on the document metadata',                      'flag',   'm'),
+    overwrite = ('forcefully overwrite previous metadata content',    'flag',   'o'),
+    save_as   = ('write a new document (default: modify in place)',   'option', 's'),
+    text      = ('act on the text in the document',                   'flag',   't'),
+    version   = ('print version info and exit',                       'flag',   'V'),
+    no_color  = ('do not color-code terminal output',                 'flag',   'Z'),
+    debug     = ('write detailed trace to "OUT" ("-" means console)', 'option', '@'),
     args      = 'keywords or keyword-value pairs',
 )
 
-def main(body = False, no_color = False, document = 'D', metadata = False,
-         overwrite = False, quiet = False, version = False, debug = 'OUT', *args):
+def main(document = 'D', metadata = False, overwrite = False, save_as = 'S',
+         text = False, version = False, no_color = False, debug = 'OUT', *args):
     '''Print or manipulate metadata or text in an OmniOutliner document.
 
-The option -f is required, and its value should be the path to the OmniOutliner
-file to modify.  At least one of the options -c and/or -m is also required,
-to tell Ottoman whether to act on contents or metadata.  These possibilities
-are explained below.
+The option -d is required, and its value should be the path to the OmniOutliner
+file to modify.  At least one of the options -m and/or -t is also required,
+to tell Ottoman whether to act on the document metadata or document text.  The
+original document is modified unless the option -s is given to make Ottoman
+write a new document.  These possibilities and more are explained below.
 
 The --metadata option for manipulating metadata
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The option -m tells Ottoman to act on the OmniOutliner document metadata.
-This is the content shown in the Document Inspector in OmniOutliner.  The
-recognized metadata fields are as follows:
+This is the content shown in the Document Inspector of the OmniOutliner app.
+The recognized metadata fields are as follows:
 
     Field          Apple name              Value type
     -----          --------------          ----------
@@ -82,11 +83,11 @@ Document Inspector panel, whereas the "Apple name" is the name of the
 attribute key in the metadata property list stored in the document.  Ottoman
 recognizes either form of the name, so that
 
-  ottoman -f test.ooutline -m Comments="this is my comment"
+  ottoman -d test.ooutline -m Comments="this is my comment"
 
 is the same as
 
-  ottoman -f test.ooutline -m kMDItemComment="this is my comment"
+  ottoman -d test.ooutline -m kMDItemComment="this is my comment"
 
 Note that these metadata fields are distinct from the macOS file metadata (and
 in particular, the "Comments" field in the OmniOutliner metadata is NOT the
@@ -104,17 +105,17 @@ When working with metadata, Ottoman has two alternative modes of operation:
 
 For example, the following will print the value of the Projects metadata field:
 
-  ottoman -f test.ooutline -m Projects
+  ottoman -d test.ooutline -m Projects
 
 More than one metadata field can be given as arguments at once.  When printing
 values of fields, they will be prefixed by their names if Ottoman is asked to
 print more than one.  As an example, let us suppose that
 
-  ottoman -f test.ooutline -m Authors
+  ottoman -d test.ooutline -m Authors
 
 might print the string "S. User" by itself, without a prefix. However,
 
-  ottoman -f test.ooutline -m Authors Projects
+  ottoman -d test.ooutline -m Authors Projects
 
 would print will print multiple lines beginning with the field names:
 
@@ -130,25 +131,34 @@ which means "Authors" is the same as "authors" and "kmditemauthors".
 As mentioned above, when writing metadata, Ottoman will append values to the
 given metadata fields unless given the option -o to overwrite previous values.
 
-The --contents option for modifying contents
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The --text option for modifying contents
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The option -c tells Ottoman to act on the body of the OmniOutliner document.
+The option -t tells Ottoman to act on the text of the OmniOutliner document.
 This makes Ottoman look through the text of the document for the given
-keyword(s) surrounded by @@ characters.  For example,
+keyword(s) surrounded by three "at" characters, i.e., @@@.  For example,
 
-  @@something@@
+  @@@something@@@
 
 would act as a placeholder for the keyword "something" in a document, and
 
-  ottoman -f somefile.ooutline -c something="this is my value"
+  ottoman -d somefile.ooutline -t something="this is the value"
 
-would cause Ottoman to replace every occurrence of the string @@something@@
+would cause Ottoman to replace every occurrence of the string @@@something@@@
 in the document with the value "this is my value" (without the quotes).
 The syntax of the placeholder is strict: it must be a single word without
-spaces between the @@ characters, to minimize the risk of accidentally
+spaces between the @@@ characters, to minimize the risk of accidentally
 performing unwanted substitutions on other content in the body of the
 document.
+
+Modifying documents in-place versus saving as new documents
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Without the -s option, Ottoman replaces the original document with a modified
+version; that is, the document is modified in-place.  If given the -s option,
+Ottoman will instead save the rewritten document as a new document and leave
+the original untouched.  This has the benefit of avoiding the potential for
+data corruption in the original document.
 
 Additional command-line arguments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -194,7 +204,7 @@ Command-line arguments summary
     # Preprocess arguments and handle early exits -----------------------------
 
     ui = UI('Ottoman', 'Omnioutliner Text TransfOrMAtioNs',
-            show_banner = False, use_color = not no_color, be_quiet = quiet)
+            show_banner = False, use_color = not no_color)
     ui.start()
 
     if version:
@@ -207,7 +217,8 @@ Command-line arguments summary
     body = exception = None
     try:
         body = MainBody(document    = document if document != 'D' else None,
-                        on_body     = body,
+                        destination = save_as if saveas != 'S' else None,
+                        on_text     = text,
                         on_metadata = metadata,
                         args        = args,
                         overwrite   = overwrite)
@@ -238,8 +249,6 @@ Command-line arguments summary
                 from traceback import format_exception
                 details = ''.join(format_exception(*exception))
                 logr(f'Exception: {msg}\n{details}')
-    else:
-        inform('Done.')
 
     # And exit ----------------------------------------------------------------
 
